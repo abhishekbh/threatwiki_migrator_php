@@ -1,4 +1,5 @@
 <?php
+include('config.php');
 
 /*
   var DataPoint = new Schema ({
@@ -154,30 +155,54 @@ function parse_date($date_in){
 function doTagStuff(){}
 
 function getJSONResponse($url,$data){
-  $data_string = json_encode($data);                                                                                   
+  $data_string = json_encode($data);
+
  
-  $ch = curl_init($url);                                                                      
-  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");                                                                     
-  curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);                                                                  
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);                                                                      
-  curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
-    'Content-Type: application/json',                                                                                
-    'Content-Length: ' . strlen($data_string))                                                                       
-  );                                                                                                                   
- 
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: application/json',
+    'Content-Length: ' . strlen($data_string))
+  );
+
   $result = curl_exec($ch);
+  return json_decode($result, true);
 }
 
 /*
   ==Geolocate==
   1. http://maps.googleapis.com/maps/api/geocode/json?address=' + locations[i] + ',+Iran&sensor=false
   2. Make sure the location does not say something like US, or UN
+  3. Check for results['address_components']['types'] in return, if country, then only store if no
+     other locations exist for the datapoint
+  3. Only save the location if its type is anything else but a country unless no other location exists for the datapoint
 */
-function geolocate($location){
-  $location = $location.',Iran';
-  $url = 'http://maps.googleapis.com/maps/api/geocode/json?address='.$location.',+Iran&sensor=false';
+function geolocate($locations){
+  $json_returns_array = array();
+  $lat_lng_pairs_array = array();
 
-  getJSONResponse($url,$location);
+  foreach ($locations as $location) {
+    $location = $location.','.$SOC_COUNTRY;
+    $url = 'http://maps.googleapis.com/maps/api/geocode/json?address='.$location.'&sensor=false';
+
+    $obj = getJSONResponse($url,$location);
+    $latlng = ''. $obj['results'][0]['geometry']['location']['lat'].",".$obj['results'][0]['geometry']['location']['lng'];
+
+    array_push($json_returns_array, $obj);
+    array_push($lat_lng_pairs_array, $latlng);
+  }
+
+  return $lat_lng_pairs_array;
+/*
+  // Now that we have the JSONs for all the locations, check if any non-countries exist in there. If yes, then discard the SOC_COUNTRY
+  if (count($json_returns_array) > 1){
+    $type = $obj['results'][0]['address_components'][0]['types'][0];
+    if (strtolower($type) == 'country') {
+    }
+  } 
+*/
 }
 
 echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
@@ -210,8 +235,8 @@ echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www
             } else if ($c == 5) {
               echo "<b>Location</b><br/>";
               $locations = explode("/",$data[$c]);
-              foreach ($locations as $loc) {
-                echo $loc . "<br/>";
+              foreach (geolocate($locations) as $loc) {
+                echo $loc."<br/>";
               }
             } else if ($c == 6) {
               echo "<b>Tags</b><br/>";
