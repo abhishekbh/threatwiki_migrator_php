@@ -209,9 +209,9 @@ echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www
               echo $data[$c] . "<br/>";
             } else if ($c == 5) {
               echo "<b>Location</b><br/>";
-              $locations = $data[$c];
+              $locations = explode("/",$data[$c]);
               foreach ($locations as $loc) {
-                echo $location . "<br/>";
+                echo $loc . "<br/>";
               }
             } else if ($c == 6) {
               echo "<b>Tags</b><br/>";
